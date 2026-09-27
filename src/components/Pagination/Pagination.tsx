@@ -1,7 +1,14 @@
 // src/components/Pagination/Pagination.tsx
-import { useRef } from 'react';
-import ReactPaginate from 'react-paginate';
+import type { ComponentType } from 'react';
+import ReactPaginateModule from 'react-paginate';
+import type { ReactPaginateProps } from 'react-paginate';
 import css from './Pagination.module.css';
+
+type ModuleWithDefault<T> = { default: T };
+
+const ReactPaginate = (
+  ReactPaginateModule as unknown as ModuleWithDefault<ComponentType<ReactPaginateProps>>
+).default;
 
 interface PaginationProps {
   pageCount: number;
@@ -16,35 +23,19 @@ export default function Pagination({
 }: PaginationProps) {
   if (pageCount <= 1) return null;
 
-  const PaginationComponent =
-    (ReactPaginate as unknown as { default: typeof ReactPaginate }).default ||
-    ReactPaginate;
-
-  // Створюємо реф для ігнорування службових подій бібліотеки
-  const prevPageRef = useRef(currentPage);
-  const ignoreNextEvent = useRef(false);
-
-  if (prevPageRef.current !== currentPage) {
-    prevPageRef.current = currentPage;
-    ignoreNextEvent.current = true; // Блокуємо наступний виклик від react-paginate
-  }
-
   const handlePageClick = (event: { selected: number }) => {
-    // Якщо це спрацював внутрішній збій бібліотеки — просто ігноруємо його
-    if (ignoreNextEvent.current) {
-      ignoreNextEvent.current = false;
-      return;
-    }
-
     const newPage = event.selected + 1;
     if (newPage !== currentPage) {
       onPageChange(newPage);
     }
   };
 
+  const safeCurrentPage = Math.max(0, Math.min(currentPage - 1, pageCount - 1));
+
   return (
-    <PaginationComponent
-      forcePage={currentPage - 1}
+    <ReactPaginate
+      key={pageCount}
+      forcePage={safeCurrentPage}
       previousLabel={'<'}
       nextLabel={'>'}
       breakLabel={'...'}

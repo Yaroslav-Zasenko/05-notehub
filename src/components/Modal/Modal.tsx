@@ -1,5 +1,6 @@
 // src/components/Modal/Modal.tsx
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import css from './Modal.module.css';
 
 interface ModalProps {
@@ -29,11 +30,13 @@ export default function Modal({ isOpen, onClose, children }: ModalProps) {
 
   if (!isOpen) return null;
 
-  return (
+  // Рендеримо модальне вікно через Portal безпосередньо в body
+  return createPortal(
     <div className={css.backdrop} onClick={onClose}>
       <div className={css.modal} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

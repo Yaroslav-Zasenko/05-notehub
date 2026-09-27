@@ -1,8 +1,8 @@
 // src/components/App/App.tsx
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchNotes, createNote, deleteNote } from '../../services/noteService';
-import type { CreateNotePayload } from '../../types/note';
+import { useQuery } from '@tanstack/react-query';
+import { useDebounce } from 'use-debounce';
+import { fetchNotes } from '../../services/noteService';
 import SearchBox from '../SearchBox/SearchBox';
 import NoteList from '../NoteList/NoteList';
 import Pagination from '../Pagination/Pagination';
@@ -12,64 +12,41 @@ import css from './App.module.css';
 
 export default function App() {
   const [page, setPage] = useState<number>(1);
- // console.log('Рендер App.tsx, поточний page у стейті:', page);
   const [search, setSearch] = useState<string>('');
+  
+  // Використовуємо хук use-debounce із затримкою 400мс
+  const [debouncedSearch] = useDebounce(search, 400);
+
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
-  const queryClient = useQueryClient();
-
-  // Отримання нотаток (з урахуванням сторінки та пошуку)
+  // Отримання нотаток (використовуємо debouncedSearch та поточну сторінку)
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['notes', page, search],
-    queryFn: () => fetchNotes({ page, perPage: 12, search }),
+    queryKey: ['notes', page, debouncedSearch],
+    queryFn: () => fetchNotes({ page, perPage: 12, search: debouncedSearch }),
     placeholderData: (previousData) => previousData,
   });
 
-  // Мутація для створення нотатки
-  const createMutation = useMutation({
-    mutationFn: createNote,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-      setIsModalOpen(false);
-    },
-  });
-
-  // Мутація для видалення нотатки
-  const deleteMutation = useMutation({
-    mutationFn: deleteNote,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-    },
-  });
-
   const handleSearch = (query: string) => {
+    // Якщо текст пошуку не змінився — нічого не робимо (захист від зайвих викликів)
+    if (query === search) return;
+
     setSearch(query);
-    //setPage(1); // Скидаємо на першу сторінку при пошуку
+    setPage(1); // Скидаємо сторінку на 1 лише при реальній зміні пошуку
   };
 
-  const handleCreateNote = (values: CreateNotePayload) => {
-    createMutation.mutate(values);
-  };
-
-  const handleDeleteNote = (id: string) => {
-    deleteMutation.mutate(id);
-  };
-
- const handlePageChange = (selectedPage: number) => {
-    // Жорстко перевіряємо, чи це реальна зміна і чи не виходимо ми за межі
+  const handlePageChange = (selectedPage: number) => {
     if (selectedPage === page) return;
     if (data && selectedPage > data.totalPages) return;
-    
-   // console.log('Зміна сторінки на:', selectedPage);
     setPage(selectedPage);
   };
+
   return (
     <div className={css.app}>
       <header className={css.toolbar}>
         <SearchBox onSearch={handleSearch} />
         
-        {/* Пагінація в хедері між пошуком і кнопкою */}
-        {data && (
+        {/* Рендеримо пагінацію лише якщо загальна кількість сторінок більша за 1 */}
+        {data && data.totalPages > 1 && (
           <Pagination
             pageCount={data.totalPages}
             currentPage={page}
@@ -86,14 +63,12 @@ export default function App() {
         {isLoading && <p>Завантаження нотаток...</p>}
         {isError && <p>Помилка завантаження даних!</p>}
 
-        {data && <NoteList notes={data.notes} onDelete={handleDeleteNote} />}
+        {data && <NoteList notes={data.notes} />}
       </main>
 
+      {/* Модальне вікно та форма створення */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-        <NoteForm
-          onSubmit={handleCreateNote}
-          onCancel={() => setIsModalOpen(false)}
-        />
+        <NoteForm onClose={() => setIsModalOpen(false)} />
       </Modal>
     </div>
   );

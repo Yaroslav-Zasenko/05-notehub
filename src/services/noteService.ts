@@ -1,10 +1,5 @@
-// src/services/noteService.ts
 import axios from "axios";
-import type {
-  Note,
-  FetchNotesResponse,
-  CreateNotePayload,
-} from "../types/note";
+import type { Note, CreateNotePayload } from "../types/note";
 
 const token = import.meta.env.VITE_NOTEHUB_TOKEN;
 
@@ -14,6 +9,14 @@ const apiClient = axios.create({
     Authorization: `Bearer ${token}`,
   },
 });
+
+export interface FetchNotesResponse {
+  notes: Note[];
+  totalPages: number;
+  totalNotes: number;
+  page: number;
+  perPage: number;
+}
 
 interface FetchNotesParams {
   page?: number;
